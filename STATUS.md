@@ -1,12 +1,12 @@
 # Baby Shaker Status
 
-Updated: 2026-03-28 13:52 PDT
+Updated: 2026-03-28 14:00 PDT
 
 ## Project
 
 - Repo: `/Users/mv_server/Development/baby-shaker`
 - Branch: `codex/mobile-migration`
-- HEAD: `6bc714736b7bd7c2b3004abcf23360a6dcd082db` (`6bc7147`)
+- HEAD: `23987efb1f9c68fd6d42371cd3e9f6f19f15a230` (`23987ef`)
 - App: `@dclaze/bambina-baby-shaker`
 - Display name: `Baby Shaker`
 - Expo project id: `dbafae7b-cd85-4922-bd73-72702c47f027`
@@ -16,7 +16,8 @@ Updated: 2026-03-28 13:52 PDT
 
 ## Current State
 
-- Commit `6bc714736b7bd7c2b3004abcf23360a6dcd082db` (`6bc7147`) was pushed to `origin/codex/mobile-migration` at `2026-03-28 13:52 PDT`.
+- Commit `6bc714736b7bd7c2b3004abcf23360a6dcd082db` (`6bc7147`) with the app and workflow changes was pushed to `origin/codex/mobile-migration` at `2026-03-28 13:52 PDT`.
+- Status refresh commit `23987efb1f9c68fd6d42371cd3e9f6f19f15a230` (`23987ef`) was pushed to `origin/codex/mobile-migration` at `2026-03-28 13:53 PDT`.
 - Pipeline config updated and pushed to align Discord and install flow with current requests.
 - TypeScript validation passed at `2026-03-28 13:11 PDT` via `npm run typecheck`.
 - Accelerometer behavior updated locally at `2026-03-28 14:08 PDT` in `App.tsx` to behave more like a physical baby shaker:
@@ -52,10 +53,15 @@ Updated: 2026-03-28 13:52 PDT
 - Workflow changes included in pushed commit `6bc7147`:
   - `.github/workflows/preview-builds.yml` now targets the `preview` iOS profile instead of `production`, so future `main` preview runs should produce a direct-install internal/ad hoc iPhone build instead of only a store-style IPA.
   - `.github/workflows/merge-notifications.yml` was added to post concise Discord notifications when a pull request is merged into `main`.
-- GitHub CLI auth blocker discovered at `2026-03-28 13:52 PDT`:
+- Remote push notification support prepared locally at `2026-03-28 14:00 PDT`:
+  - new workflow file: `.github/workflows/push-notifications.yml`
+  - notification script: `scripts/post-push-to-discord.mjs`
+  - trigger: every push to `main`
+  - output: concise Discord push notice with commit details and compare URL, followed by the separate preview-build post when CI finishes
+- GitHub CLI auth blocker discovered at `2026-03-28 13:53 PDT`:
   - `gh auth status` reports the token for GitHub account `dclaze` is invalid in this shell
   - `.github/workflows/preview-builds.yml` only auto-runs on pushes to `main`
-  - result: commit `6bc7147` is pushed, but no new preview workflow run has started yet from this shell
+  - result: branch head `23987ef` is pushed, but no new preview workflow run has started yet from this shell
 - Validation in this run at `2026-03-28 13:34 PDT`:
   - `node --check scripts/post-build-to-discord.mjs`
   - `node --check scripts/post-merge-to-discord.mjs`
@@ -70,17 +76,21 @@ Updated: 2026-03-28 13:52 PDT
   - `npm run typecheck`
 - Validation in this run at `2026-03-28 13:47 PDT`:
   - `npm run typecheck`
+- Validation in this run at `2026-03-28 14:00 PDT`:
+  - `node --check scripts/post-push-to-discord.mjs`
+  - `node --check scripts/post-merge-to-discord.mjs`
+  - `npm run typecheck`
 
 ## Blockers
 
 - The iOS ad hoc build `f7156452-74f5-4736-860a-a3855216e846` could not be re-verified from this shell because Expo CLI is not authenticated here and the public Expo build page does not expose final status server-side.
-- A fresh preview build for commit `6bc7147` has not started yet because:
+- A fresh preview build for branch head `23987ef` has not started yet because:
   - `.github/workflows/preview-builds.yml` auto-runs only on `main`
   - `gh auth status` reports invalid GitHub CLI auth for account `dclaze`, so `workflow_dispatch` cannot currently be triggered from this shell
-- The tap-position fix is pushed, but still unverified until a new preview or release build is produced from commit `6bc7147`.
-- The main-screen branding update is pushed, but still unverified until a new preview or release build is produced from commit `6bc7147`.
-- The display-name update to `Baby Shaker` is pushed, but still unverified until a new preview or release build is produced from commit `6bc7147`.
-- The new single-app play flow is pushed, but still unverified until a new preview or release build is produced from commit `6bc7147`.
+- The tap-position fix is pushed, but still unverified until a new preview or release build is produced from branch head `23987ef`.
+- The main-screen branding update is pushed, but still unverified until a new preview or release build is produced from branch head `23987ef`.
+- The display-name update to `Baby Shaker` is pushed, but still unverified until a new preview or release build is produced from branch head `23987ef`.
+- The new single-app play flow is pushed, but still unverified until a new preview or release build is produced from branch head `23987ef`.
 - Native OS lock state remains unverifiable from this Expo app:
   - iOS does not expose Guided Access state or a public deep link into the Guided Access menu
   - Android settings can be opened, but final app pinning still requires a manual OS-level action outside the app
@@ -97,7 +107,8 @@ Updated: 2026-03-28 13:52 PDT
 ## Immediate Next Steps
 
 - Restore valid GitHub API auth in this shell or manually trigger `.github/workflows/preview-builds.yml` for ref `codex/mobile-migration`.
-- Once that run starts for commit `6bc7147`, watch it to completion and post concise release notes plus one fresh try link to Discord.
+- Commit and push the new `.github/workflows/push-notifications.yml` and `scripts/post-push-to-discord.mjs` changes so GitHub starts emitting immediate Discord notices for remote pushes to `main`.
+- Once that run starts for branch head `23987ef`, watch it to completion and post concise release notes plus one fresh try link to Discord.
 - Test the updated shake thresholds on a physical iPhone and Android device; adjust the linear-acceleration thresholds if the toy feels too chatty or too hard to trigger.
 - Verify on physical devices that upper-screen taps now spawn particles at the touched position across the full screen, especially over the header and center toy area.
 - Verify on device that the main screen now shows `baby shaker` at the top and `bambina by openbox` only at the bottom.

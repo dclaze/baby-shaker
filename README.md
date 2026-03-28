@@ -85,6 +85,12 @@ This repo is set up for GitHub-triggered EAS builds.
 - Trigger: merged pull requests into `main`
 - Output: concise Discord message with PR link and merge commit, followed by the normal preview-build post from the `main` push
 
+### Push notifications
+
+- Workflow: `.github/workflows/push-notifications.yml`
+- Trigger: every push to `main`
+- Output: concise Discord message with commit details and compare URL, followed by the normal preview-build post when that build finishes
+
 ### Required GitHub secrets
 
 - `EXPO_TOKEN`
