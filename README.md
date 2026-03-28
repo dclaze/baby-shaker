@@ -1,6 +1,6 @@
-# Bambina Baby Shaker
+# Baby Shaker
 
-Bambina Baby Shaker is an Openbox app in the Bambina line of baby-focused sensory games, built with Expo and React Native for iOS and Android.
+Baby Shaker is an Openbox app in the Bambina line of baby-focused sensory games, built with Expo and React Native for iOS and Android.
 
 ## Research references
 
@@ -28,6 +28,10 @@ The app can protect its own controls, but mobile apps cannot fully block system 
 
 - On iPhone, use Guided Access before handing the device to a baby
 - On Android, use screen pinning or app pinning
+- The parent controls now include a dedicated single-app play setup flow that:
+  - shows exit instructions before the parent resumes baby mode
+  - deep-links into Android settings where possible
+  - makes the parent acknowledge that iOS Guided Access and Android pinning cannot be verified from inside the app
 
 Inside the app, the parent gate is opened by tapping the four corners clockwise:
 
@@ -64,8 +68,9 @@ This repo is set up for GitHub-triggered EAS builds.
 
 - Workflow: `.github/workflows/preview-builds.yml`
 - Trigger: push to `main`
-- Output: Android preview APK and iOS preview build
+- Output: Android preview APK and iOS internal/ad hoc preview build
 - Notification: posts build links to Discord when `DISCORD_WEBHOOK_URL` is configured
+- iPhone install path: use the preview build link from Discord on a registered device; tapping a raw `.ipa` file in Files will not install the app
 
 ### Release builds
 
@@ -73,6 +78,12 @@ This repo is set up for GitHub-triggered EAS builds.
 - Trigger: manual GitHub Actions run
 - Output: production Android and iOS builds
 - Optional: auto-submit to Google Play and TestFlight
+
+### Merge notifications
+
+- Workflow: `.github/workflows/merge-notifications.yml`
+- Trigger: merged pull requests into `main`
+- Output: concise Discord message with PR link and merge commit, followed by the normal preview-build post from the `main` push
 
 ### Required GitHub secrets
 

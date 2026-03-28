@@ -11,9 +11,12 @@ import {
   Animated,
   BackHandler,
   Easing,
+  LayoutChangeEvent,
+  Linking,
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -48,8 +51,9 @@ type Particle = {
 const BRAND_COMPANY = 'Openbox';
 const BRAND_LINE = 'Bambina';
 const APP_NAME = 'Baby Shaker';
-const BUILD_MARKER = 'v0.1.0-dev.20260328-0939';
+const BUILD_MARKER = 'v0.1.0-dev.20260328-1341';
 const PASSCODE_KEY = 'openbox-bambina-parent-passcode';
+const SINGLE_APP_GUIDE_ACK_KEY = 'openbox-bambina-single-app-guide-acknowledged';
 const CORNER_SEQUENCE: Corner[] = ['topLeft', 'topRight', 'bottomRight', 'bottomLeft'];
 const BABY_COLORS = [
   '#FF8FAB',
@@ -104,6 +108,11 @@ export default function App() {
   const [pendingPin, setPendingPin] = useState('');
   const [gateVisible, setGateVisible] = useState(false);
   const [parentPanelVisible, setParentPanelVisible] = useState(false);
+  const [singleAppGuideVisible, setSingleAppGuideVisible] = useState(false);
+  const [singleAppGuideAcknowledged, setSingleAppGuideAcknowledged] = useState(false);
+  const [exitStepsConfirmed, setExitStepsConfirmed] = useState(false);
+  const [systemLockConfirmed, setSystemLockConfirmed] = useState(false);
+  const [nativeLimitsConfirmed, setNativeLimitsConfirmed] = useState(false);
   const [helperText, setHelperText] = useState('Clockwise corner taps open the parent gate.');
   const [messageIndex, setMessageIndex] = useState(0);
   const [cornerProgress, setCornerProgress] = useState<Corner[]>([]);
@@ -118,11 +127,11 @@ export default function App() {
   const gateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const noteIndexRef = useRef(0);
-  const lastTouchAtRef = useRef(0);
   const lastShakeAtRef = useRef(0);
-  const lastTapAnimationAtRef = useRef(0);
+  const shakeEnergyRef = useRef(0);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedSoundsRef = useRef<Audio.Sound[]>([]);
+  const screenOriginRef = useRef({ x: 0, y: 0 });
   const toyRotate = useRef(new Animated.Value(0)).current;
   const toyPulse = useRef(new Animated.Value(0)).current;
   const auraPulse = useRef(new Animated.Value(0)).current;
@@ -132,8 +141,9 @@ export default function App() {
 
     async function loadConfig() {
       try {
-        const [savedPin] = await Promise.all([
+        const [savedPin, savedGuideAck] = await Promise.all([
           SecureStore.getItemAsync(PASSCODE_KEY),
+          SecureStore.getItemAsync(SINGLE_APP_GUIDE_ACK_KEY),
           Audio.setAudioModeAsync({
             playsInSilentModeIOS: true,
             shouldDuckAndroid: true,
@@ -150,11 +160,13 @@ export default function App() {
           setParentPin(savedPin);
           setGateMode('unlock');
           setGateVisible(false);
+          setSingleAppGuideAcknowledged(savedGuideAck === 'yes');
           setHelperText('Clockwise corner taps open the parent gate.');
         } else {
           setParentPin(null);
           setGateMode('setupCreate');
           setGateVisible(true);
+          setSingleAppGuideAcknowledged(false);
           setHelperText('Create a 4-digit parent passcode to begin.');
         }
       } finally {
@@ -219,9 +231,16 @@ export default function App() {
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (!parentPanelVisible) {
+      if (!parentPanelVisible && !singleAppGuideVisible) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => undefined);
         setHelperText('Parent gate: tap the four corners clockwise.');
+        return true;
+      }
+
+      if (singleAppGuideVisible) {
+        setSingleAppGuideVisible(false);
+        setParentPanelVisible(true);
+        setHelperText('Returned to parent controls.');
         return true;
       }
 
@@ -231,7 +250,7 @@ export default function App() {
     });
 
     return () => subscription.remove();
-  }, [parentPanelVisible]);
+  }, [parentPanelVisible, singleAppGuideVisible]);
 
   useEffect(() => {
     Animated.loop(
@@ -265,73 +284,59 @@ export default function App() {
 
   useEffect(() => {
     const subscription = DeviceMotion.addListener((motion) => {
-      if (!motion.accelerationIncludingGravity || gateVisible || parentPanelVisible) {
+      if (!motion.accelerationIncludingGravity || gateVisible || parentPanelVisible || singleAppGuideVisible) {
         return;
       }
 
       const now = Date.now();
-      const interactionWindowOpen = now - lastTouchAtRef.current <= 2500;
-      if (!interactionWindowOpen) {
-        Animated.parallel([
-          Animated.spring(toyRotate, {
-            toValue: 0,
-            friction: 8,
-            tension: 80,
-            useNativeDriver: true,
-          }),
-          Animated.spring(toyPulse, {
-            toValue: 0,
-            friction: 8,
-            tension: 80,
-            useNativeDriver: true,
-          }),
-        ]).start();
-        return;
-      }
-
-      // Let the tap animation finish before motion can influence the shaker.
-      if (now - lastTapAnimationAtRef.current < 550) {
-        return;
-      }
-
-      const { x = 0, y = 0, z = 0 } = motion.accelerationIncludingGravity;
-      const magnitude = Math.sqrt(x * x + y * y + z * z);
-      const tiltX = Math.max(-1, Math.min(1, x / 3.4));
-      const tiltY = Math.max(-1, Math.min(1, y / 3.4));
+      const { x = 0, y = 0 } = motion.accelerationIncludingGravity;
+      const linearAcceleration = motion.acceleration ?? { x: 0, y: 0, z: 0 };
+      const linearX = linearAcceleration.x ?? 0;
+      const linearY = linearAcceleration.y ?? 0;
+      const linearZ = linearAcceleration.z ?? 0;
+      const linearMagnitude = Math.sqrt(linearX * linearX + linearY * linearY + linearZ * linearZ);
+      const tiltX = Math.max(-1, Math.min(1, x / 4.2));
+      const tiltY = Math.max(-1, Math.min(1, y / 4.2));
       const rawTiltStrength = Math.min(1, Math.sqrt(tiltX * tiltX + tiltY * tiltY));
-      const tiltStrength = rawTiltStrength < 0.22 ? 0 : (rawTiltStrength - 0.22) / 0.78;
+      const tiltStrength = rawTiltStrength < 0.12 ? 0 : (rawTiltStrength - 0.12) / 0.88;
+      const nextShakeEnergy = shakeEnergyRef.current * 0.58 + linearMagnitude * 0.42;
+      shakeEnergyRef.current = nextShakeEnergy;
+      const motionPulse = Math.min(1, nextShakeEnergy / 2.8);
 
       Animated.parallel([
         Animated.spring(toyRotate, {
           toValue: tiltStrength === 0 ? 0 : Math.max(-1, Math.min(1, (tiltX * 0.8 + tiltY * 0.35) * tiltStrength)),
-          friction: 8,
-          tension: 95,
+          friction: 7,
+          tension: 90,
           useNativeDriver: true,
         }),
         Animated.spring(toyPulse, {
-          toValue: tiltStrength * 0.28,
-          friction: 8,
-          tension: 95,
+          toValue: Math.min(0.42, tiltStrength * 0.18 + motionPulse * 0.24),
+          friction: 7,
+          tension: 90,
           useNativeDriver: true,
         }),
       ]).start();
 
-      const whipStrength = magnitude - 1;
-      if (whipStrength < 2.95 || now - lastShakeAtRef.current < 900) {
+      const strongShake = nextShakeEnergy >= 2.3;
+      const mediumShake = nextShakeEnergy >= 1.45;
+      const cooldown = strongShake ? 220 : 320;
+      if ((!mediumShake && !strongShake) || now - lastShakeAtRef.current < cooldown) {
         return;
       }
 
       lastShakeAtRef.current = now;
-      reactToy(true);
+      reactToy(strongShake);
+      setInteractionCount((count) => count + 1);
       setIdleHintVisible(false);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined);
+      Haptics.impactAsync(strongShake ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
       playNextNote().catch(() => undefined);
     });
 
-    DeviceMotion.setUpdateInterval(140);
+    DeviceMotion.setUpdateInterval(80);
 
     return () => subscription.remove();
-  }, [gateVisible, parentPanelVisible]);
+  }, [gateVisible, parentPanelVisible, singleAppGuideVisible]);
 
   useEffect(() => {
     if (cornerProgress.length === 0) {
@@ -374,7 +379,7 @@ export default function App() {
       clearTimeout(idleTimerRef.current);
     }
 
-    if (gateVisible || parentPanelVisible) {
+    if (gateVisible || parentPanelVisible || singleAppGuideVisible) {
       setIdleHintVisible(false);
       return;
     }
@@ -389,7 +394,7 @@ export default function App() {
         clearTimeout(idleTimerRef.current);
       }
     };
-  }, [interactionCount, gateVisible, parentPanelVisible, messageIndex]);
+  }, [interactionCount, gateVisible, parentPanelVisible, singleAppGuideVisible, messageIndex]);
 
   const toyTransform = useMemo(
     () => [
@@ -521,8 +526,6 @@ export default function App() {
   };
 
   const handleInteraction = (x: number, y: number) => {
-    lastTouchAtRef.current = Date.now();
-    lastTapAnimationAtRef.current = Date.now();
     spawnLegacyBurst(x, y, false);
     reactToy(false);
     setInteractionCount((count) => count + 1);
@@ -555,6 +558,12 @@ export default function App() {
     setPendingPin('');
   };
 
+  const resetSingleAppChecklist = () => {
+    setExitStepsConfirmed(false);
+    setSystemLockConfirmed(singleAppGuideAcknowledged);
+    setNativeLimitsConfirmed(false);
+  };
+
   const handlePinSubmit = async (submittedPin: string) => {
     switch (gateMode) {
       case 'setupCreate':
@@ -578,7 +587,10 @@ export default function App() {
         setGateVisible(false);
         resetGateState();
         setGateMode('unlock');
-        setHelperText('Parent passcode saved. Baby mode is ready.');
+        setSingleAppGuideAcknowledged(false);
+        resetSingleAppChecklist();
+        setSingleAppGuideVisible(true);
+        setHelperText('Review the single-app play steps before handing the phone over.');
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
         return;
       case 'unlock':
@@ -634,6 +646,7 @@ export default function App() {
 
   const startChangePinFlow = () => {
     setParentPanelVisible(false);
+    setSingleAppGuideVisible(false);
     setGateVisible(true);
     setGateMode('changeCreate');
     setPinEntry('');
@@ -657,7 +670,74 @@ export default function App() {
     }
   };
 
+  const handleScreenLayout = (event: LayoutChangeEvent) => {
+    const { x, y } = event.nativeEvent.layout;
+    screenOriginRef.current = { x, y };
+  };
+
   const backgroundStops = BACKGROUNDS[backgroundIndex];
+  const canStartSingleAppPlay = exitStepsConfirmed && systemLockConfirmed && nativeLimitsConfirmed;
+  const singleAppSetupTitle = Platform.OS === 'ios' ? 'Turn on Guided Access before play' : 'Pin this app before play';
+  const singleAppSetupBody =
+    Platform.OS === 'ios'
+      ? `${APP_NAME} can lock its own controls, but iPhone system buttons and gestures still belong to iOS until Guided Access is turned on.`
+      : `${APP_NAME} can lock its own controls, but Android system navigation still belongs to the phone until screen pinning is enabled and used.`;
+  const exitJourney =
+    Platform.OS === 'ios'
+      ? 'To exit later: triple-click the side button, then enter the Guided Access passcode or use Face ID if you enabled it.'
+      : 'To exit later: use the unpin gesture shown by your phone when you pin the app, then unlock with your device PIN, pattern, or password if required.';
+  const systemJourney =
+    Platform.OS === 'ios'
+      ? 'Open Settings manually and follow: Accessibility → Guided Access. Turn it on, set the passcode options you want, open Baby Shaker again, then triple-click the side button to start Guided Access.'
+      : 'Open Accessibility settings, turn on screen pinning or app pinning if your phone exposes it there, then open the app switcher and pin Baby Shaker before handing the phone over.';
+
+  const openSingleAppGuide = () => {
+    setParentPanelVisible(false);
+    resetSingleAppChecklist();
+    setSingleAppGuideVisible(true);
+    setHelperText('Single-app play setup is open.');
+  };
+
+  const openAndroidAccessibilitySettings = async () => {
+    if (Platform.OS !== 'android') {
+      return;
+    }
+
+    try {
+      await Linking.sendIntent('android.settings.ACCESSIBILITY_SETTINGS');
+      setHelperText('Android Accessibility settings opened.');
+    } catch {
+      try {
+        await Linking.sendIntent('android.settings.SETTINGS');
+        setHelperText('Android Settings opened.');
+      } catch {
+        setHelperText('Could not open Android settings automatically on this device.');
+      }
+    }
+  };
+
+  const openAppSettings = async () => {
+    try {
+      await Linking.openSettings();
+      setHelperText('App settings opened.');
+    } catch {
+      setHelperText('Could not open settings automatically on this device.');
+    }
+  };
+
+  const completeSingleAppGuide = async () => {
+    await SecureStore.setItemAsync(SINGLE_APP_GUIDE_ACK_KEY, 'yes');
+    setSingleAppGuideAcknowledged(true);
+    setSingleAppGuideVisible(false);
+    setHelperText('Baby mode resumed. Use Guided Access or screen pinning before handoff.');
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+  };
+
+  const returnToParentControls = () => {
+    setSingleAppGuideVisible(false);
+    setParentPanelVisible(true);
+    setHelperText('Returned to parent controls.');
+  };
 
   if (loading) {
     return (
@@ -675,14 +755,17 @@ export default function App() {
   return (
     <View
       style={styles.screen}
+      onLayout={handleScreenLayout}
       onStartShouldSetResponder={() => true}
       onResponderGrant={(event) => {
-        if (gateVisible || parentPanelVisible) {
+        if (gateVisible || parentPanelVisible || singleAppGuideVisible) {
           return;
         }
 
-        const { locationX, locationY } = event.nativeEvent;
-        handleInteraction(locationX, locationY);
+        const { pageX, pageY } = event.nativeEvent;
+        const localX = pageX - screenOriginRef.current.x;
+        const localY = pageY - screenOriginRef.current.y;
+        handleInteraction(localX, localY);
       }}
     >
       <StatusBar hidden />
@@ -789,7 +872,7 @@ export default function App() {
       })}
 
       <View style={styles.header}>
-        <Text style={styles.badge}>{BRAND_LINE}</Text>
+        <Text style={styles.badge}>{APP_NAME.toLowerCase()}</Text>
       </View>
 
       <View style={styles.centerArea}>
@@ -812,7 +895,7 @@ export default function App() {
       </View>
 
       <View style={styles.footer}>
-        <Text style={styles.footerTitle}>by openbox</Text>
+        <Text style={styles.footerTitle}>{`${BRAND_LINE.toLowerCase()} by ${BRAND_COMPANY.toLowerCase()}`}</Text>
         <Text style={styles.footerDebug}>{BUILD_MARKER}</Text>
       </View>
 
@@ -874,31 +957,115 @@ export default function App() {
             <Text style={styles.modalEyebrow}>Parent Controls</Text>
             <Text style={styles.modalTitle}>Baby mode is protected</Text>
             <Text style={styles.modalBody}>
-              {BRAND_COMPANY} built the app-level lock in. For a true device lock, turn on Guided Access
-              on iPhone or screen pinning on Android before handing the phone over.
+              {BRAND_COMPANY} built the app-level lock in. Use the single-app play setup before handoff so the baby stays in {APP_NAME}.
             </Text>
 
             <View style={styles.tipBlock}>
-              <Text style={styles.tipTitle}>iPhone</Text>
-              <Text style={styles.tipText}>Settings → Accessibility → Guided Access, then triple-click the side button.</Text>
-            </View>
-            <View style={styles.tipBlock}>
-              <Text style={styles.tipTitle}>Android</Text>
-              <Text style={styles.tipText}>Enable screen pinning in Settings, then pin Bambina Baby Shaker from the app switcher.</Text>
+              <Text style={styles.tipTitle}>Single-app play</Text>
+              <Text style={styles.tipText}>
+                {singleAppGuideAcknowledged
+                  ? 'Setup has been reviewed on this device. Open it again if you want the exit steps or menu path before locking the phone.'
+                  : 'Review the exit steps and system menu path before handing the phone to a baby.'}
+              </Text>
             </View>
 
+            <Pressable style={styles.primaryButton} onPress={openSingleAppGuide}>
+              <Text style={styles.primaryButtonText}>{singleAppGuideAcknowledged ? 'Review single-app play' : 'Set up single-app play'}</Text>
+            </Pressable>
+
             <Pressable
-              style={styles.primaryButton}
+              style={styles.secondaryButton}
               onPress={() => {
                 setParentPanelVisible(false);
                 setHelperText('Baby mode resumed.');
               }}
             >
-              <Text style={styles.primaryButtonText}>Resume baby mode</Text>
+              <Text style={styles.secondaryButtonText}>Resume baby mode</Text>
             </Pressable>
 
-            <Pressable style={styles.secondaryButton} onPress={startChangePinFlow}>
-              <Text style={styles.secondaryButtonText}>Change passcode</Text>
+            <Pressable style={styles.tertiaryButton} onPress={startChangePinFlow}>
+              <Text style={styles.tertiaryButtonText}>Change passcode</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal animationType="slide" transparent visible={singleAppGuideVisible}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, styles.parentCard, styles.singleAppCard]}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.singleAppScroll}>
+              <Text style={styles.modalEyebrow}>Single-App Play</Text>
+              <Text style={styles.modalTitle}>{singleAppSetupTitle}</Text>
+              <Text style={styles.modalBody}>{singleAppSetupBody}</Text>
+
+              <View style={[styles.tipBlock, styles.warningBlock]}>
+                <Text style={styles.tipTitle}>Exit this mode first</Text>
+                <Text style={styles.tipText}>{exitJourney}</Text>
+              </View>
+
+              <View style={styles.tipBlock}>
+                <Text style={styles.tipTitle}>{Platform.OS === 'ios' ? 'iPhone setup path' : 'Android setup path'}</Text>
+                <Text style={styles.tipText}>{systemJourney}</Text>
+              </View>
+
+              <View style={styles.tipBlock}>
+                <Text style={styles.tipTitle}>Native limit</Text>
+                <Text style={styles.tipText}>
+                  {Platform.OS === 'ios'
+                    ? 'Apple does not let this app open the Guided Access menu directly or confirm that Guided Access is on.'
+                    : 'Android lets the app open settings, but it still cannot pin itself or confirm that the final pinning step was completed.'}
+                </Text>
+              </View>
+
+              {Platform.OS === 'android' ? (
+                <Pressable style={styles.primaryButton} onPress={openAndroidAccessibilitySettings}>
+                  <Text style={styles.primaryButtonText}>Open Android settings</Text>
+                </Pressable>
+              ) : (
+                <Pressable style={styles.secondaryButton} onPress={openAppSettings}>
+                  <Text style={styles.secondaryButtonText}>Open app settings</Text>
+                </Pressable>
+              )}
+
+              <Pressable
+                style={[styles.checkRow, exitStepsConfirmed && styles.checkRowActive]}
+                onPress={() => setExitStepsConfirmed((current) => !current)}
+              >
+                <Text style={styles.checkIcon}>{exitStepsConfirmed ? '✓' : '○'}</Text>
+                <Text style={styles.checkText}>I know exactly how to exit this mode later.</Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.checkRow, systemLockConfirmed && styles.checkRowActive]}
+                onPress={() => setSystemLockConfirmed((current) => !current)}
+              >
+                <Text style={styles.checkIcon}>{systemLockConfirmed ? '✓' : '○'}</Text>
+                <Text style={styles.checkText}>
+                  I have enabled {Platform.OS === 'ios' ? 'Guided Access' : 'screen pinning or app pinning'} or I am ready to do it before handoff.
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.checkRow, nativeLimitsConfirmed && styles.checkRowActive]}
+                onPress={() => setNativeLimitsConfirmed((current) => !current)}
+              >
+                <Text style={styles.checkIcon}>{nativeLimitsConfirmed ? '✓' : '○'}</Text>
+                <Text style={styles.checkText}>I understand the app cannot verify the native lock state automatically.</Text>
+              </Pressable>
+            </ScrollView>
+
+            <Pressable
+              style={[styles.primaryButton, !canStartSingleAppPlay && styles.primaryButtonDisabled]}
+              disabled={!canStartSingleAppPlay}
+              onPress={() => {
+                completeSingleAppGuide().catch(() => undefined);
+              }}
+            >
+              <Text style={styles.primaryButtonText}>Start baby mode</Text>
+            </Pressable>
+
+            <Pressable style={styles.secondaryButton} onPress={returnToParentControls}>
+              <Text style={styles.secondaryButtonText}>Back to parent controls</Text>
             </Pressable>
           </View>
         </View>
@@ -1036,10 +1203,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 999,
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: '800',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    textTransform: 'lowercase',
   },
   centerArea: {
     flex: 1,
@@ -1180,6 +1347,13 @@ const styles = StyleSheet.create({
   parentCard: {
     gap: 16,
   },
+  singleAppCard: {
+    maxHeight: '88%',
+  },
+  singleAppScroll: {
+    gap: 14,
+    paddingBottom: 8,
+  },
   modalEyebrow: {
     color: '#F95D9B',
     fontSize: 12,
@@ -1259,11 +1433,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
+  tertiaryButton: {
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  tertiaryButtonText: {
+    color: '#475569',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  primaryButtonDisabled: {
+    backgroundColor: '#94A3B8',
+  },
   tipBlock: {
     backgroundColor: '#E2E8F0',
     borderRadius: 20,
     padding: 16,
     gap: 6,
+  },
+  warningBlock: {
+    backgroundColor: '#FDE68A',
   },
   tipTitle: {
     color: '#081120',
@@ -1274,5 +1463,32 @@ const styles = StyleSheet.create({
     color: '#334155',
     fontSize: 15,
     lineHeight: 20,
+  },
+  checkRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    borderWidth: 2,
+    borderColor: '#CBD5E1',
+    borderRadius: 20,
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+  },
+  checkRowActive: {
+    borderColor: '#081120',
+    backgroundColor: '#E0F2FE',
+  },
+  checkIcon: {
+    color: '#081120',
+    fontSize: 20,
+    fontWeight: '800',
+    lineHeight: 22,
+  },
+  checkText: {
+    flex: 1,
+    color: '#0F172A',
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '600',
   },
 });
