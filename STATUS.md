@@ -1,12 +1,12 @@
 # Baby Shaker Status
 
-Updated: 2026-03-28 14:00 PDT
+Updated: 2026-03-28 14:01 PDT
 
 ## Project
 
 - Repo: `/Users/mv_server/Development/baby-shaker`
 - Branch: `codex/mobile-migration`
-- HEAD: `23987efb1f9c68fd6d42371cd3e9f6f19f15a230` (`23987ef`)
+- HEAD: `bd469859c2394766da2f29d8039b496dae35cdca` (`bd46985`)
 - App: `@dclaze/bambina-baby-shaker`
 - Display name: `Baby Shaker`
 - Expo project id: `dbafae7b-cd85-4922-bd73-72702c47f027`
@@ -18,6 +18,7 @@ Updated: 2026-03-28 14:00 PDT
 
 - Commit `6bc714736b7bd7c2b3004abcf23360a6dcd082db` (`6bc7147`) with the app and workflow changes was pushed to `origin/codex/mobile-migration` at `2026-03-28 13:52 PDT`.
 - Status refresh commit `23987efb1f9c68fd6d42371cd3e9f6f19f15a230` (`23987ef`) was pushed to `origin/codex/mobile-migration` at `2026-03-28 13:53 PDT`.
+- Push-notification commit `bd469859c2394766da2f29d8039b496dae35cdca` (`bd46985`) was pushed to `origin/codex/mobile-migration` at `2026-03-28 14:01 PDT`.
 - Pipeline config updated and pushed to align Discord and install flow with current requests.
 - TypeScript validation passed at `2026-03-28 13:11 PDT` via `npm run typecheck`.
 - Accelerometer behavior updated locally at `2026-03-28 14:08 PDT` in `App.tsx` to behave more like a physical baby shaker:
@@ -53,7 +54,7 @@ Updated: 2026-03-28 14:00 PDT
 - Workflow changes included in pushed commit `6bc7147`:
   - `.github/workflows/preview-builds.yml` now targets the `preview` iOS profile instead of `production`, so future `main` preview runs should produce a direct-install internal/ad hoc iPhone build instead of only a store-style IPA.
   - `.github/workflows/merge-notifications.yml` was added to post concise Discord notifications when a pull request is merged into `main`.
-- Remote push notification support prepared locally at `2026-03-28 14:00 PDT`:
+- Remote push notification support pushed at `2026-03-28 14:01 PDT` in commit `bd46985`:
   - new workflow file: `.github/workflows/push-notifications.yml`
   - notification script: `scripts/post-push-to-discord.mjs`
   - trigger: every push to `main`
@@ -107,7 +108,7 @@ Updated: 2026-03-28 14:00 PDT
 ## Immediate Next Steps
 
 - Restore valid GitHub API auth in this shell or manually trigger `.github/workflows/preview-builds.yml` for ref `codex/mobile-migration`.
-- Commit and push the new `.github/workflows/push-notifications.yml` and `scripts/post-push-to-discord.mjs` changes so GitHub starts emitting immediate Discord notices for remote pushes to `main`.
+- Open a PR or merge branch head `bd46985` into `main` so GitHub starts emitting the new immediate Discord push notices for remote pushes to `main`.
 - Once that run starts for branch head `23987ef`, watch it to completion and post concise release notes plus one fresh try link to Discord.
 - Test the updated shake thresholds on a physical iPhone and Android device; adjust the linear-acceleration thresholds if the toy feels too chatty or too hard to trigger.
 - Verify on physical devices that upper-screen taps now spawn particles at the touched position across the full screen, especially over the header and center toy area.
