@@ -1,0 +1,79 @@
+name: Preview Builds
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check required secrets
+        run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "Missing EXPO_TOKEN secret"
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Android preview
+        run: >
+          npx eas-cli build
+          --platform android
+          --profile preview
+          --non-interactive
+          --wait
+          --json
+          --message "Preview build ${GITHUB_SHA}"
+          > build-android.json
+
+      - name: Build iOS preview
+        run: >
+          npx eas-cli build
+          --platform ios
+          --profile preview
+          --non-interactive
+          --wait
+          --json
+          --message "Preview build ${GITHUB_SHA}"
+          > build-ios.json
+
+      - name: Upload build metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: eas-preview-build-metadata
+          path: |
+            build-android.json
+            build-ios.json
+
+      - name: Post Discord update
+        if: ${{ success() && secrets.DISCORD_WEBHOOK_URL != '' }}
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: >
+          node ./scripts/post-build-to-discord.mjs
+          --android-json build-android.json
+          --ios-json build-ios.json
+          --kind preview
+          --ref "${GITHUB_REF_NAME}"
+          --sha "${GITHUB_SHA}"
+          --notes "auto build from main push"

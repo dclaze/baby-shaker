@@ -1,0 +1,89 @@
+name: Release Builds
+
+on:
+  workflow_dispatch:
+    inputs:
+      submit_to_stores:
+        description: Submit to TestFlight and Google Play after build
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check required secrets
+        run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "Missing EXPO_TOKEN secret"
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Android release
+        env:
+          AUTO_SUBMIT_FLAG: ${{ inputs.submit_to_stores && '--auto-submit' || '' }}
+        run: |
+          npx eas-cli build \
+            --platform android \
+            --profile production \
+            --non-interactive \
+            --wait \
+            --json \
+            ${AUTO_SUBMIT_FLAG} \
+            --message "Release build ${GITHUB_SHA}" \
+            > build-android.json
+
+      - name: Build iOS release
+        env:
+          AUTO_SUBMIT_FLAG: ${{ inputs.submit_to_stores && '--auto-submit' || '' }}
+        run: |
+          npx eas-cli build \
+            --platform ios \
+            --profile production \
+            --non-interactive \
+            --wait \
+            --json \
+            ${AUTO_SUBMIT_FLAG} \
+            --message "Release build ${GITHUB_SHA}" \
+            > build-ios.json
+
+      - name: Upload build metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: eas-release-build-metadata
+          path: |
+            build-android.json
+            build-ios.json
+
+      - name: Post Discord update
+        if: ${{ success() && secrets.DISCORD_WEBHOOK_URL != '' }}
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          RELEASE_NOTES: ${{ inputs.submit_to_stores && 'manual release build with store submission' || 'manual release build' }}
+        run: |
+          node ./scripts/post-build-to-discord.mjs \
+            --android-json build-android.json \
+            --ios-json build-ios.json \
+            --kind release \
+            --ref "${GITHUB_REF_NAME}" \
+            --sha "${GITHUB_SHA}" \
+            --notes "${RELEASE_NOTES}"

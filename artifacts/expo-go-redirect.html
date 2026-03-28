@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Open Bambina Baby Shaker</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #081120;
+        --card: #f7f3e9;
+        --ink: #081120;
+        --muted: #475569;
+        --accent: #f95d9b;
+        --accent2: #ffb703;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background:
+          radial-gradient(circle at top left, rgba(249, 93, 155, 0.45), transparent 30%),
+          radial-gradient(circle at bottom right, rgba(255, 183, 3, 0.4), transparent 28%),
+          var(--bg);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      main {
+        width: min(92vw, 440px);
+        background: var(--card);
+        color: var(--ink);
+        border-radius: 28px;
+        padding: 28px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: 32px;
+      }
+      p {
+        margin: 0 0 14px;
+        line-height: 1.45;
+        color: var(--muted);
+      }
+      a {
+        display: block;
+        margin-top: 12px;
+        padding: 14px 16px;
+        border-radius: 16px;
+        text-decoration: none;
+        font-weight: 700;
+      }
+      .primary {
+        background: var(--ink);
+        color: white;
+      }
+      .secondary {
+        background: #e2e8f0;
+        color: var(--ink);
+      }
+      code {
+        display: block;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: #e2e8f0;
+        color: var(--ink);
+        overflow-wrap: anywhere;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p>Openbox presents</p>
+      <h1>Bambina Baby Shaker</h1>
+      <p>If Expo Go does not launch automatically, tap one of the buttons below.</p>
+      <a id="open-default" class="primary" href="exp://192.168.4.41:8082">Open in Expo Go</a>
+      <a id="open-root" class="secondary" href="exp://192.168.4.41:8082/--/">Open Expo Go root route</a>
+      <p>Manual fallback:</p>
+      <code>exp://192.168.4.41:8082</code>
+    </main>
+    <script>
+      const target = "exp://192.168.4.41:8082";
+      window.setTimeout(() => {
+        window.location.href = target;
+      }, 120);
+    </script>
+  </body>
+  </html>
