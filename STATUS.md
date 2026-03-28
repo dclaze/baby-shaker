@@ -6,7 +6,6 @@ Updated: 2026-03-28 14:01 PDT
 
 - Repo: `/Users/mv_server/Development/baby-shaker`
 - Branch: `codex/mobile-migration`
-- HEAD: `bd469859c2394766da2f29d8039b496dae35cdca` (`bd46985`)
 - App: `@dclaze/bambina-baby-shaker`
 - Display name: `Baby Shaker`
 - Expo project id: `dbafae7b-cd85-4922-bd73-72702c47f027`
@@ -19,6 +18,7 @@ Updated: 2026-03-28 14:01 PDT
 - Commit `6bc714736b7bd7c2b3004abcf23360a6dcd082db` (`6bc7147`) with the app and workflow changes was pushed to `origin/codex/mobile-migration` at `2026-03-28 13:52 PDT`.
 - Status refresh commit `23987efb1f9c68fd6d42371cd3e9f6f19f15a230` (`23987ef`) was pushed to `origin/codex/mobile-migration` at `2026-03-28 13:53 PDT`.
 - Push-notification commit `bd469859c2394766da2f29d8039b496dae35cdca` (`bd46985`) was pushed to `origin/codex/mobile-migration` at `2026-03-28 14:01 PDT`.
+- Repo-local handoff file was refreshed again immediately after that push so future runs do not need to rediscover the push-notification state.
 - Pipeline config updated and pushed to align Discord and install flow with current requests.
 - TypeScript validation passed at `2026-03-28 13:11 PDT` via `npm run typecheck`.
 - Accelerometer behavior updated locally at `2026-03-28 14:08 PDT` in `App.tsx` to behave more like a physical baby shaker:
