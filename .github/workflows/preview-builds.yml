@@ -66,7 +66,7 @@ jobs:
             build-ios.json
 
       - name: Post Discord update
-        if: ${{ success() && secrets.DISCORD_WEBHOOK_URL != '' }}
+        if: ${{ success() }}
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: >
