@@ -25,6 +25,10 @@ import {
 type Corner = 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft';
 type GateMode = 'setupCreate' | 'setupConfirm' | 'unlock' | 'changeCreate' | 'changeConfirm';
 type Shape = 'circle' | 'star' | 'heart' | 'triangle';
+type JourneyStep = {
+  title: string;
+  body: string;
+};
 
 type Ripple = {
   id: number;
@@ -676,20 +680,103 @@ export default function App() {
   };
 
   const backgroundStops = BACKGROUNDS[backgroundIndex];
-  const canStartSingleAppPlay = exitStepsConfirmed && systemLockConfirmed && nativeLimitsConfirmed;
-  const singleAppSetupTitle = Platform.OS === 'ios' ? 'Turn on Guided Access before play' : 'Pin this app before play';
+  const singleAppGuideMode = singleAppGuideAcknowledged ? 'quickStart' : 'firstTime';
+  const canStartSingleAppPlay =
+    singleAppGuideMode === 'quickStart'
+      ? exitStepsConfirmed && systemLockConfirmed
+      : exitStepsConfirmed && systemLockConfirmed && nativeLimitsConfirmed;
+  const singleAppSetupTitle =
+    Platform.OS === 'ios'
+      ? singleAppGuideMode === 'quickStart'
+        ? 'Start Guided Access for handoff'
+        : 'Set up Guided Access for this iPhone'
+      : singleAppGuideMode === 'quickStart'
+        ? 'Pin Baby Shaker for handoff'
+        : 'Set up app pinning for this Android phone';
   const singleAppSetupBody =
     Platform.OS === 'ios'
-      ? `${APP_NAME} can lock its own controls, but iPhone system buttons and gestures still belong to iOS until Guided Access is turned on.`
-      : `${APP_NAME} can lock its own controls, but Android system navigation still belongs to the phone until screen pinning is enabled and used.`;
+      ? singleAppGuideMode === 'quickStart'
+        ? `Your one-time Guided Access setup is marked complete on this iPhone. Right before handoff, start Guided Access from ${APP_NAME} and the phone stays in this app until you exit.`
+        : `${APP_NAME} can lock its own parent controls, but iPhone buttons and system gestures still belong to iOS until Guided Access is enabled once on this device.`
+      : singleAppGuideMode === 'quickStart'
+        ? `Your one-time app pinning setup is marked complete on this phone. Right before handoff, pin ${APP_NAME} from the app switcher so Android stays inside this app.`
+        : `${APP_NAME} can lock its own parent controls, but Android navigation still belongs to the phone until app pinning is turned on once and then used before handoff.`;
   const exitJourney =
     Platform.OS === 'ios'
-      ? 'To exit later: triple-click the side button, then enter the Guided Access passcode or use Face ID if you enabled it.'
-      : 'To exit later: use the unpin gesture shown by your phone when you pin the app, then unlock with your device PIN, pattern, or password if required.';
+      ? 'To exit later: triple-click the side button, then enter the Guided Access passcode or use Face ID / Touch ID if you enabled it.'
+      : 'To exit later: use your phone’s unpin gesture, then enter the device PIN, pattern, or password if Android asks for it.';
   const systemJourney =
     Platform.OS === 'ios'
-      ? 'Open Settings manually and follow: Accessibility → Guided Access. Turn it on, set the passcode options you want, open Baby Shaker again, then triple-click the side button to start Guided Access.'
-      : 'Open Accessibility settings, turn on screen pinning or app pinning if your phone exposes it there, then open the app switcher and pin Baby Shaker before handing the phone over.';
+      ? 'One-time setup lives in Settings → Accessibility → Guided Access. After that, you start it from inside Baby Shaker with a triple-click of the side or Home button.'
+      : 'One-time setup lives in Settings → Security → App pinning on most phones. After that, you pin Baby Shaker from the Android app switcher right before handoff.';
+  const singleAppPrimaryActionLabel =
+    Platform.OS === 'ios'
+      ? 'I already enabled Guided Access on this iPhone'
+      : 'I already enabled app pinning on this phone';
+  const singleAppActionHint =
+    Platform.OS === 'ios'
+      ? 'Apple does not let this app open Guided Access settings or confirm that Guided Access is active, so this step still needs a parent.'
+      : 'Android can open Security settings, but only the parent can finish the final pin step from the system overview screen.';
+  const journeySteps: JourneyStep[] =
+    Platform.OS === 'ios'
+      ? singleAppGuideMode === 'quickStart'
+        ? [
+            {
+              title: 'Open Baby Shaker and get ready',
+              body: 'Keep Baby Shaker on screen before handoff.',
+            },
+            {
+              title: 'Triple-click the side button',
+              body: 'If the Accessibility Shortcuts panel appears, tap Guided Access, then tap Start.',
+            },
+            {
+              title: 'Hand the phone over',
+              body: `When it is time to stop, ${exitJourney}`,
+            },
+          ]
+        : [
+            {
+              title: 'Turn on Guided Access once',
+              body: 'Open Settings, go to Accessibility, choose Guided Access, and turn it on.',
+            },
+            {
+              title: 'Choose how you will exit later',
+              body: 'Set a Guided Access passcode and optionally enable Face ID or Touch ID for ending sessions faster.',
+            },
+            {
+              title: 'Start it from Baby Shaker at handoff time',
+              body: 'Return to Baby Shaker, triple-click the side or Home button, choose Guided Access if needed, then tap Start.',
+            },
+          ]
+      : singleAppGuideMode === 'quickStart'
+        ? [
+            {
+              title: 'Keep Baby Shaker open',
+              body: 'Bring up the app switcher while Baby Shaker is already on screen.',
+            },
+            {
+              title: 'Pin the app from overview',
+              body: 'Tap the Baby Shaker app icon in overview, then tap Pin.',
+            },
+            {
+              title: 'Hand the phone over',
+              body: `When it is time to stop, ${exitJourney}`,
+            },
+          ]
+        : [
+            {
+              title: 'Turn on app pinning once',
+              body: 'Open Security settings and turn on App pinning or Screen pinning. If offered, require the device PIN, pattern, or password before unpinning.',
+            },
+            {
+              title: 'Return to Baby Shaker',
+              body: 'Come back here after settings are ready so future handoffs are faster.',
+            },
+            {
+              title: 'Pin Baby Shaker before handoff',
+              body: 'Open overview, tap the Baby Shaker app icon, then tap Pin.',
+            },
+          ];
 
   const openSingleAppGuide = () => {
     setParentPanelVisible(false);
@@ -698,14 +785,14 @@ export default function App() {
     setHelperText('Single-app play setup is open.');
   };
 
-  const openAndroidAccessibilitySettings = async () => {
+  const openAndroidPinningSettings = async () => {
     if (Platform.OS !== 'android') {
       return;
     }
 
     try {
-      await Linking.sendIntent('android.settings.ACCESSIBILITY_SETTINGS');
-      setHelperText('Android Accessibility settings opened.');
+      await Linking.sendIntent('android.settings.SECURITY_SETTINGS');
+      setHelperText('Android Security settings opened.');
     } catch {
       try {
         await Linking.sendIntent('android.settings.SETTINGS');
@@ -729,7 +816,11 @@ export default function App() {
     await SecureStore.setItemAsync(SINGLE_APP_GUIDE_ACK_KEY, 'yes');
     setSingleAppGuideAcknowledged(true);
     setSingleAppGuideVisible(false);
-    setHelperText('Baby mode resumed. Use Guided Access or screen pinning before handoff.');
+    setHelperText(
+      Platform.OS === 'ios'
+        ? 'Baby mode resumed. Triple-click the side button to start Guided Access before handoff.'
+        : 'Baby mode resumed. Pin Baby Shaker from Android overview before handoff.'
+    );
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
   };
 
@@ -964,8 +1055,8 @@ export default function App() {
               <Text style={styles.tipTitle}>Single-app play</Text>
               <Text style={styles.tipText}>
                 {singleAppGuideAcknowledged
-                  ? 'Setup has been reviewed on this device. Open it again if you want the exit steps or menu path before locking the phone.'
-                  : 'Review the exit steps and system menu path before handing the phone to a baby.'}
+                  ? 'This device is marked as ready for quick lock. Open the guided handoff flow any time you want the exact lock and exit steps again.'
+                  : 'Walk through the guided setup once on this device, then future handoffs become much faster.'}
               </Text>
             </View>
 
@@ -998,33 +1089,44 @@ export default function App() {
               <Text style={styles.modalTitle}>{singleAppSetupTitle}</Text>
               <Text style={styles.modalBody}>{singleAppSetupBody}</Text>
 
+              <View style={styles.tipBlock}>
+                <Text style={styles.tipTitle}>{singleAppGuideMode === 'quickStart' ? 'Fastest journey now' : 'Best setup journey'}</Text>
+                <Text style={styles.tipText}>{systemJourney}</Text>
+              </View>
+
+              {journeySteps.map((step, index) => (
+                <View key={`${step.title}-${index}`} style={styles.journeyStep}>
+                  <View style={styles.journeyBadge}>
+                    <Text style={styles.journeyBadgeText}>{index + 1}</Text>
+                  </View>
+                  <View style={styles.journeyCopy}>
+                    <Text style={styles.journeyTitle}>{step.title}</Text>
+                    <Text style={styles.journeyBody}>{step.body}</Text>
+                  </View>
+                </View>
+              ))}
+
               <View style={[styles.tipBlock, styles.warningBlock]}>
                 <Text style={styles.tipTitle}>Exit this mode first</Text>
                 <Text style={styles.tipText}>{exitJourney}</Text>
               </View>
 
               <View style={styles.tipBlock}>
-                <Text style={styles.tipTitle}>{Platform.OS === 'ios' ? 'iPhone setup path' : 'Android setup path'}</Text>
-                <Text style={styles.tipText}>{systemJourney}</Text>
-              </View>
-
-              <View style={styles.tipBlock}>
                 <Text style={styles.tipTitle}>Native limit</Text>
-                <Text style={styles.tipText}>
-                  {Platform.OS === 'ios'
-                    ? 'Apple does not let this app open the Guided Access menu directly or confirm that Guided Access is on.'
-                    : 'Android lets the app open settings, but it still cannot pin itself or confirm that the final pinning step was completed.'}
-                </Text>
+                <Text style={styles.tipText}>{singleAppActionHint}</Text>
               </View>
 
               {Platform.OS === 'android' ? (
-                <Pressable style={styles.primaryButton} onPress={openAndroidAccessibilitySettings}>
-                  <Text style={styles.primaryButtonText}>Open Android settings</Text>
+                <Pressable style={styles.primaryButton} onPress={openAndroidPinningSettings}>
+                  <Text style={styles.primaryButtonText}>Open Security settings</Text>
                 </Pressable>
               ) : (
-                <Pressable style={styles.secondaryButton} onPress={openAppSettings}>
-                  <Text style={styles.secondaryButtonText}>Open app settings</Text>
-                </Pressable>
+                <View style={styles.tipBlock}>
+                  <Text style={styles.tipTitle}>One-tap limitation on iPhone</Text>
+                  <Text style={styles.tipText}>
+                    Apple does not expose a public deep link into Guided Access settings. The fastest reliable flow is to set it up once in Settings, then start it with the hardware button shortcut from inside Baby Shaker.
+                  </Text>
+                </View>
               )}
 
               <Pressable
@@ -1041,17 +1143,29 @@ export default function App() {
               >
                 <Text style={styles.checkIcon}>{systemLockConfirmed ? '✓' : '○'}</Text>
                 <Text style={styles.checkText}>
-                  I have enabled {Platform.OS === 'ios' ? 'Guided Access' : 'screen pinning or app pinning'} or I am ready to do it before handoff.
+                  {singleAppGuideMode === 'quickStart'
+                    ? `I am ready to ${Platform.OS === 'ios' ? 'start Guided Access' : 'pin Baby Shaker'} right before handoff.`
+                    : singleAppPrimaryActionLabel}
                 </Text>
               </Pressable>
 
-              <Pressable
-                style={[styles.checkRow, nativeLimitsConfirmed && styles.checkRowActive]}
-                onPress={() => setNativeLimitsConfirmed((current) => !current)}
-              >
-                <Text style={styles.checkIcon}>{nativeLimitsConfirmed ? '✓' : '○'}</Text>
-                <Text style={styles.checkText}>I understand the app cannot verify the native lock state automatically.</Text>
-              </Pressable>
+              {singleAppGuideMode === 'firstTime' ? (
+                <Pressable
+                  style={[styles.checkRow, nativeLimitsConfirmed && styles.checkRowActive]}
+                  onPress={() => setNativeLimitsConfirmed((current) => !current)}
+                >
+                  <Text style={styles.checkIcon}>{nativeLimitsConfirmed ? '✓' : '○'}</Text>
+                  <Text style={styles.checkText}>
+                    I understand the app cannot verify the native lock state automatically.
+                  </Text>
+                </Pressable>
+              ) : null}
+
+              {Platform.OS === 'ios' ? (
+                <Pressable style={styles.secondaryButton} onPress={openAppSettings}>
+                  <Text style={styles.secondaryButtonText}>Open Baby Shaker settings</Text>
+                </Pressable>
+              ) : null}
             </ScrollView>
 
             <Pressable
@@ -1061,7 +1175,9 @@ export default function App() {
                 completeSingleAppGuide().catch(() => undefined);
               }}
             >
-              <Text style={styles.primaryButtonText}>Start baby mode</Text>
+              <Text style={styles.primaryButtonText}>
+                {singleAppGuideMode === 'quickStart' ? 'Resume and lock now' : 'Save setup and resume'}
+              </Text>
             </Pressable>
 
             <Pressable style={styles.secondaryButton} onPress={returnToParentControls}>
@@ -1450,6 +1566,44 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 16,
     gap: 6,
+  },
+  journeyStep: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    borderRadius: 20,
+    padding: 16,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  journeyBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#081120',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  journeyBadgeText: {
+    color: '#F8FAFC',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  journeyCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  journeyTitle: {
+    color: '#081120',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  journeyBody: {
+    color: '#334155',
+    fontSize: 14,
+    lineHeight: 20,
   },
   warningBlock: {
     backgroundColor: '#FDE68A',
