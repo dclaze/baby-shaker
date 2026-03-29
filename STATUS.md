@@ -1,11 +1,12 @@
 # Baby Shaker Status
 
-Updated: 2026-03-28 14:01 PDT
+Updated: 2026-03-29 09:00 PDT
 
 ## Project
 
 - Repo: `/Users/mv_server/Development/baby-shaker`
 - Branch: `codex/mobile-migration`
+- Current HEAD: `c3cbfa76c7fbd70a6b7a2b02999a9f7d732c2a9e` (`c3cbfa7`)
 - App: `@dclaze/bambina-baby-shaker`
 - Display name: `Baby Shaker`
 - Expo project id: `dbafae7b-cd85-4922-bd73-72702c47f027`
@@ -18,6 +19,7 @@ Updated: 2026-03-28 14:01 PDT
 - Commit `6bc714736b7bd7c2b3004abcf23360a6dcd082db` (`6bc7147`) with the app and workflow changes was pushed to `origin/codex/mobile-migration` at `2026-03-28 13:52 PDT`.
 - Status refresh commit `23987efb1f9c68fd6d42371cd3e9f6f19f15a230` (`23987ef`) was pushed to `origin/codex/mobile-migration` at `2026-03-28 13:53 PDT`.
 - Push-notification commit `bd469859c2394766da2f29d8039b496dae35cdca` (`bd46985`) was pushed to `origin/codex/mobile-migration` at `2026-03-28 14:01 PDT`.
+- Status refresh commit `c3cbfa76c7fbd70a6b7a2b02999a9f7d732c2a9e` (`c3cbfa7`) is the current local HEAD on `codex/mobile-migration` as re-verified at `2026-03-29 09:00 PDT`.
 - Repo-local handoff file was refreshed again immediately after that push so future runs do not need to rediscover the push-notification state.
 - Pipeline config updated and pushed to align Discord and install flow with current requests.
 - TypeScript validation passed at `2026-03-28 13:11 PDT` via `npm run typecheck`.
@@ -47,6 +49,7 @@ Updated: 2026-03-28 14:01 PDT
   - iPhone now explicitly discloses that Guided Access cannot be opened or verified programmatically from this app; only app settings can be opened
   - the modal requires parent acknowledgement of exit steps, native setup responsibility, and the app's inability to verify native lock state automatically
 - GitHub preview workflow run `23690467422` completed successfully at `2026-03-28 10:46 PDT` for commit `934b4a89521c0ace855a79c8c7e639058edda422`.
+- No newer completed preview build metadata was found locally during the `2026-03-29 09:00 PDT` status check; the latest verified installable artifacts still appear to be the Android APK and iOS IPA/build page listed below, all from before the branch-head changes now on `codex/mobile-migration`.
 - Existing known build links:
   - Android preview APK: `https://expo.dev/artifacts/eas/waZpjf9qWFp9Hc6dZcCZSn.apk`
   - iOS store/internal IPA: `https://expo.dev/artifacts/eas/gh5VVVyr5Qc1m9SyPj697n.ipa`
@@ -59,8 +62,9 @@ Updated: 2026-03-28 14:01 PDT
   - notification script: `scripts/post-push-to-discord.mjs`
   - trigger: every push to `main`
   - output: concise Discord push notice with commit details and compare URL, followed by the separate preview-build post when CI finishes
-- GitHub CLI auth blocker discovered at `2026-03-28 13:53 PDT`:
-  - `gh auth status` reports the token for GitHub account `dclaze` is invalid in this shell
+- GitHub workflow trigger blocker re-verified at `2026-03-29 09:02 PDT`:
+  - `gh` is not installed in this shell (`zsh:1: command not found: gh`)
+  - prior handoff also noted invalid GitHub CLI auth for account `dclaze` when `gh` was available in an earlier shell
   - `.github/workflows/preview-builds.yml` only auto-runs on pushes to `main`
   - result: branch head `23987ef` is pushed, but no new preview workflow run has started yet from this shell
 - Validation in this run at `2026-03-28 13:34 PDT`:
@@ -85,13 +89,13 @@ Updated: 2026-03-28 14:01 PDT
 ## Blockers
 
 - The iOS ad hoc build `f7156452-74f5-4736-860a-a3855216e846` could not be re-verified from this shell because Expo CLI is not authenticated here and the public Expo build page does not expose final status server-side.
-- A fresh preview build for branch head `23987ef` has not started yet because:
+- A fresh preview build for the current branch head `c3cbfa7` has not been verified yet because:
   - `.github/workflows/preview-builds.yml` auto-runs only on `main`
-  - `gh auth status` reports invalid GitHub CLI auth for account `dclaze`, so `workflow_dispatch` cannot currently be triggered from this shell
-- The tap-position fix is pushed, but still unverified until a new preview or release build is produced from branch head `23987ef`.
-- The main-screen branding update is pushed, but still unverified until a new preview or release build is produced from branch head `23987ef`.
-- The display-name update to `Baby Shaker` is pushed, but still unverified until a new preview or release build is produced from branch head `23987ef`.
-- The new single-app play flow is pushed, but still unverified until a new preview or release build is produced from branch head `23987ef`.
+  - this shell cannot trigger `workflow_dispatch` via GitHub CLI because `gh` is not installed here, and an earlier shell also reported invalid `gh` auth for account `dclaze`
+- The tap-position fix is pushed, but still unverified until a new preview or release build is produced from branch head `c3cbfa7`.
+- The main-screen branding update is pushed, but still unverified until a new preview or release build is produced from branch head `c3cbfa7`.
+- The display-name update to `Baby Shaker` is pushed, but still unverified until a new preview or release build is produced from branch head `c3cbfa7`.
+- The new single-app play flow is pushed, but still unverified until a new preview or release build is produced from branch head `c3cbfa7`.
 - Native OS lock state remains unverifiable from this Expo app:
   - iOS does not expose Guided Access state or a public deep link into the Guided Access menu
   - Android settings can be opened, but final app pinning still requires a manual OS-level action outside the app
@@ -107,9 +111,9 @@ Updated: 2026-03-28 14:01 PDT
 
 ## Immediate Next Steps
 
-- Restore valid GitHub API auth in this shell or manually trigger `.github/workflows/preview-builds.yml` for ref `codex/mobile-migration`.
+- Restore valid GitHub API auth in this shell or manually trigger `.github/workflows/preview-builds.yml` for ref `codex/mobile-migration` / commit `c3cbfa7`.
 - Open a PR or merge branch head `bd46985` into `main` so GitHub starts emitting the new immediate Discord push notices for remote pushes to `main`.
-- Once that run starts for branch head `23987ef`, watch it to completion and post concise release notes plus one fresh try link to Discord.
+- Once that run starts for branch head `c3cbfa7`, watch it to completion and post concise release notes plus one fresh try link to Discord.
 - Test the updated shake thresholds on a physical iPhone and Android device; adjust the linear-acceleration thresholds if the toy feels too chatty or too hard to trigger.
 - Verify on physical devices that upper-screen taps now spawn particles at the touched position across the full screen, especially over the header and center toy area.
 - Verify on device that the main screen now shows `baby shaker` at the top and `bambina by openbox` only at the bottom.
