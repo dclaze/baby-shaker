@@ -113,6 +113,7 @@ export default function App() {
   const [gateVisible, setGateVisible] = useState(false);
   const [parentPanelVisible, setParentPanelVisible] = useState(false);
   const [singleAppGuideVisible, setSingleAppGuideVisible] = useState(false);
+  const [launchPromptVisible, setLaunchPromptVisible] = useState(false);
   const [singleAppGuideAcknowledged, setSingleAppGuideAcknowledged] = useState(false);
   const [exitStepsConfirmed, setExitStepsConfirmed] = useState(false);
   const [systemLockConfirmed, setSystemLockConfirmed] = useState(false);
@@ -165,11 +166,13 @@ export default function App() {
           setGateMode('unlock');
           setGateVisible(false);
           setSingleAppGuideAcknowledged(savedGuideAck === 'yes');
+          setLaunchPromptVisible(savedGuideAck !== 'yes');
           setHelperText('Clockwise corner taps open the parent gate.');
         } else {
           setParentPin(null);
           setGateMode('setupCreate');
           setGateVisible(true);
+          setLaunchPromptVisible(false);
           setSingleAppGuideAcknowledged(false);
           setHelperText('Create a 4-digit parent passcode to begin.');
         }
@@ -591,6 +594,7 @@ export default function App() {
         setGateVisible(false);
         resetGateState();
         setGateMode('unlock');
+        setLaunchPromptVisible(false);
         setSingleAppGuideAcknowledged(false);
         resetSingleAppChecklist();
         setSingleAppGuideVisible(true);
@@ -780,6 +784,7 @@ export default function App() {
 
   const openSingleAppGuide = () => {
     setParentPanelVisible(false);
+    setLaunchPromptVisible(false);
     resetSingleAppChecklist();
     setSingleAppGuideVisible(true);
     setHelperText('Single-app play setup is open.');
@@ -828,6 +833,11 @@ export default function App() {
     setSingleAppGuideVisible(false);
     setParentPanelVisible(true);
     setHelperText('Returned to parent controls.');
+  };
+
+  const dismissLaunchPrompt = () => {
+    setLaunchPromptVisible(false);
+    setHelperText('Baby mode resumed. Use the settings button when you are ready to lock the app for handoff.');
   };
 
   if (loading) {
@@ -990,6 +1000,17 @@ export default function App() {
         <Text style={styles.footerDebug}>{BUILD_MARKER}</Text>
       </View>
 
+      {parentPin && !gateVisible && !parentPanelVisible && !singleAppGuideVisible ? (
+        <Pressable
+          style={styles.settingsFab}
+          onPress={openGate}
+          accessibilityRole="button"
+          accessibilityLabel="Open parent settings"
+        >
+          <Text style={styles.settingsFabIcon}>⚙</Text>
+        </Pressable>
+      ) : null}
+
       <Pressable style={[styles.cornerHotspot, styles.topLeft]} onPress={() => handleCornerTap('topLeft')} />
       <Pressable style={[styles.cornerHotspot, styles.topRight]} onPress={() => handleCornerTap('topRight')} />
       <Pressable style={[styles.cornerHotspot, styles.bottomRight]} onPress={() => handleCornerTap('bottomRight')} />
@@ -1038,6 +1059,35 @@ export default function App() {
                 <Text style={styles.secondaryButtonText}>Back to baby mode</Text>
               </Pressable>
             ) : null}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal animationType="fade" transparent visible={launchPromptVisible && !gateVisible && !singleAppGuideVisible}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, styles.launchPromptCard]}>
+            <Text style={styles.modalEyebrow}>Parent Setup</Text>
+            <Text style={styles.modalTitle}>Set up single-app play?</Text>
+            <Text style={styles.modalBody}>
+              {Platform.OS === 'ios'
+                ? `Before handoff, set up Guided Access on this iPhone so ${APP_NAME} can stay on screen.`
+                : `Before handoff, set up app pinning on this Android phone so ${APP_NAME} can stay on screen.`}
+            </Text>
+
+            <View style={styles.tipBlock}>
+              <Text style={styles.tipTitle}>Why this shows now</Text>
+              <Text style={styles.tipText}>
+                This appears until a parent reviews the single-app play setup once. After that, use the settings button in the bottom corner any time you want to revisit it.
+              </Text>
+            </View>
+
+            <Pressable style={styles.primaryButton} onPress={openSingleAppGuide}>
+              <Text style={styles.primaryButtonText}>Set up now</Text>
+            </Pressable>
+
+            <Pressable style={styles.secondaryButton} onPress={dismissLaunchPrompt}>
+              <Text style={styles.secondaryButtonText}>Later</Text>
+            </Pressable>
           </View>
         </View>
       </Modal>
@@ -1427,6 +1477,28 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'center',
   },
+  settingsFab: {
+    position: 'absolute',
+    right: 18,
+    bottom: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#F7F3E9EE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#020617',
+    shadowOpacity: 0.24,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
+  },
+  settingsFabIcon: {
+    color: '#081120',
+    fontSize: 24,
+    fontWeight: '800',
+    includeFontPadding: false,
+  },
   cornerHotspot: {
     position: 'absolute',
     width: 68,
@@ -1461,6 +1533,9 @@ const styles = StyleSheet.create({
     gap: 18,
   },
   parentCard: {
+    gap: 16,
+  },
+  launchPromptCard: {
     gap: 16,
   },
   singleAppCard: {

@@ -1,12 +1,12 @@
 # Baby Shaker Status
 
-Updated: 2026-03-29 09:28 PDT
+Updated: 2026-03-30 09:10 PDT
 
 ## Project
 
 - Repo: `/Users/mv_server/Development/baby-shaker`
 - Branch: `main`
-- Current HEAD: `742939c3a5122e3686ef7de68f5421fa80e76485` (`742939c`)
+- Current HEAD: `7f5b48d048db3c7d8833a2b4c6f41fca3971e441` (`7f5b48d`)
 - App: `@dclaze/bambina-baby-shaker`
 - Display name: `Baby Shaker`
 - Expo project id: `dbafae7b-cd85-4922-bd73-72702c47f027`
@@ -25,6 +25,10 @@ Updated: 2026-03-29 09:28 PDT
 - GitHub Actions state re-verified from the public repo at `2026-03-29 09:14 PDT`:
   - Push Notifications run `23711426918` for commit `742939c` succeeded
   - Preview Builds run `23711426916` for commit `742939c` is in progress
+- Single-app lock journey commit `7f5b48d048db3c7d8833a2b4c6f41fca3971e441` (`7f5b48d`) was pushed to `origin/main` on `2026-03-29`:
+  - Android setup CTA now targets Security settings instead of Accessibility settings
+  - the setup flow distinguishes first-time setup from repeat quick-start
+  - iPhone and Android journeys are now more explicit and platform-specific
 - Repo-local handoff file was refreshed again immediately after that push so future runs do not need to rediscover the push-notification state.
 - Pipeline config updated and pushed to align Discord and install flow with current requests.
 - TypeScript validation passed at `2026-03-28 13:11 PDT` via `npm run typecheck`.
@@ -59,6 +63,10 @@ Updated: 2026-03-29 09:28 PDT
   - iPhone guidance now clearly distinguishes one-time Guided Access setup from the per-handoff triple-click start flow
   - Android guidance now clearly distinguishes one-time App pinning enablement from the per-handoff overview-pin flow
   - repeat visits now show a shorter lock-now flow instead of the full first-time disclosure checklist
+- Launch and re-entry lock UX refined locally at `2026-03-30 09:10 PDT` in `App.tsx`:
+  - if a parent PIN exists but single-app play has not been reviewed yet, the app now shows a first-launch parent setup prompt instead of silently dropping into baby mode
+  - after dismissal or completion, baby mode now shows a persistent settings gear button in the lower-right corner so parents can reopen the gate without remembering the corner-tap gesture
+  - the first-launch prompt routes directly into the single-app play setup flow or can be deferred with `Later`
 - GitHub preview workflow run `23690467422` completed successfully at `2026-03-28 10:46 PDT` for commit `934b4a89521c0ace855a79c8c7e639058edda422`.
 - No newer completed preview build metadata was found locally during the `2026-03-29 09:00 PDT` status check; the latest verified installable artifacts still appear to be the Android APK and iOS IPA/build page listed below, all from before the branch-head changes now merged onto `main`.
 - Existing known build links:
@@ -100,12 +108,7 @@ Updated: 2026-03-29 09:28 PDT
 ## Blockers
 
 - The iOS ad hoc build `f7156452-74f5-4736-860a-a3855216e846` could not be re-verified from this shell because Expo CLI is not authenticated here and the public Expo build page does not expose final status server-side.
-- A fresh preview build for the current `main` head `742939c` has not completed yet; the GitHub Actions run has started and is still in progress.
-- The tap-position fix is merged to `main`, but still unverified until a new preview or release build is produced from head `742939c`.
-- The main-screen branding update is merged to `main`, but still unverified until a new preview or release build is produced from head `742939c`.
-- The display-name update to `Baby Shaker` is merged to `main`, but still unverified until a new preview or release build is produced from head `742939c`.
-- The new single-app play flow is merged to `main`, but still unverified until a new preview or release build is produced from head `742939c`.
-- The refined lock/setup journey is only locally edited right now and has not been pushed or device-tested yet.
+- The current launch-prompt and floating-settings-button UX is only locally edited right now and has not been pushed or device-tested yet.
 - Native OS lock state remains unverifiable from this Expo app:
   - iOS does not expose Guided Access state or a public deep link into the Guided Access menu
   - Android settings can be opened, but final app pinning still requires a manual OS-level action outside the app
@@ -121,9 +124,11 @@ Updated: 2026-03-29 09:28 PDT
 
 ## Immediate Next Steps
 
-- Watch preview run `23711426916` for head `742939c` to completion and post concise release notes plus one fresh try link to Discord.
-- If the preview run fails or does not start, use an authenticated GitHub session to rerun `Preview Builds` or inspect repository Actions settings and required secrets.
-- Review, validate, and ship the refined single-app lock journey in `App.tsx`, then confirm on physical iPhone and Android devices that parents can complete the updated flow without confusion.
+- Push the launch-prompt and floating-settings-button UX changes, then watch the next preview run for the new `main` head.
+- Confirm on physical devices that:
+  - the first-launch prompt appears only until single-app play has been reviewed once
+  - the lower-right settings button remains reachable without interfering with baby play
+  - the Android parent journey still leads cleanly into Security settings and the final overview-pin step
 - Test the updated shake thresholds on a physical iPhone and Android device; adjust the linear-acceleration thresholds if the toy feels too chatty or too hard to trigger.
 - Verify on physical devices that upper-screen taps now spawn particles at the touched position across the full screen, especially over the header and center toy area.
 - Verify on device that the main screen now shows `baby shaker` at the top and `bambina by openbox` only at the bottom.
