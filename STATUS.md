@@ -1,6 +1,6 @@
 # Baby Shaker Status
 
-Updated: 2026-03-30 09:10 PDT
+Updated: 2026-03-30 09:34 PDT
 
 ## Project
 
@@ -67,6 +67,11 @@ Updated: 2026-03-30 09:10 PDT
   - if a parent PIN exists but single-app play has not been reviewed yet, the app now shows a first-launch parent setup prompt instead of silently dropping into baby mode
   - after dismissal or completion, baby mode now shows a persistent settings gear button in the lower-right corner so parents can reopen the gate without remembering the corner-tap gesture
   - the first-launch prompt routes directly into the single-app play setup flow or can be deferred with `Later`
+- Sound pack system expanded locally at `2026-03-30 09:34 PDT`:
+  - sound playback is now pack-based and persisted with SecureStore instead of using one fixed note list
+  - parent controls now include a custom rounded dropdown for choosing sound packs
+  - added `Bell Chimes`, `Twinkle Drops`, and `Classic Rattle` sound packs
+  - added generated audio assets: `assets/audio/rattle-soft.wav`, `assets/audio/rattle-bright.wav`, `assets/audio/rattle-clack.wav`
 - GitHub preview workflow run `23690467422` completed successfully at `2026-03-28 10:46 PDT` for commit `934b4a89521c0ace855a79c8c7e639058edda422`.
 - No newer completed preview build metadata was found locally during the `2026-03-29 09:00 PDT` status check; the latest verified installable artifacts still appear to be the Android APK and iOS IPA/build page listed below, all from before the branch-head changes now merged onto `main`.
 - Existing known build links:
@@ -108,7 +113,7 @@ Updated: 2026-03-30 09:10 PDT
 ## Blockers
 
 - The iOS ad hoc build `f7156452-74f5-4736-860a-a3855216e846` could not be re-verified from this shell because Expo CLI is not authenticated here and the public Expo build page does not expose final status server-side.
-- The current launch-prompt and floating-settings-button UX is only locally edited right now and has not been pushed or device-tested yet.
+- The current launch-prompt, floating-settings-button, and sound-pack dropdown work are only locally edited right now and have not been pushed or device-tested yet.
 - Native OS lock state remains unverifiable from this Expo app:
   - iOS does not expose Guided Access state or a public deep link into the Guided Access menu
   - Android settings can be opened, but final app pinning still requires a manual OS-level action outside the app
@@ -125,6 +130,7 @@ Updated: 2026-03-30 09:10 PDT
 ## Immediate Next Steps
 
 - Push the launch-prompt and floating-settings-button UX changes, then watch the next preview run for the new `main` head.
+- Push the new sound-pack dropdown and rattle assets, then verify on device that each pack plays correctly and the parent selector remains easy to use.
 - Confirm on physical devices that:
   - the first-launch prompt appears only until single-app play has been reviewed once
   - the lower-right settings button remains reachable without interfering with baby play

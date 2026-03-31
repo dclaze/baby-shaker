@@ -25,9 +25,17 @@ import {
 type Corner = 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft';
 type GateMode = 'setupCreate' | 'setupConfirm' | 'unlock' | 'changeCreate' | 'changeConfirm';
 type Shape = 'circle' | 'star' | 'heart' | 'triangle';
+type SoundPackId = 'chime' | 'twinkle' | 'rattle';
 type JourneyStep = {
   title: string;
   body: string;
+};
+type SoundPack = {
+  id: SoundPackId;
+  label: string;
+  shortLabel: string;
+  description: string;
+  files: number[];
 };
 
 type Ripple = {
@@ -58,6 +66,7 @@ const APP_NAME = 'Baby Shaker';
 const BUILD_MARKER = 'v0.1.0-dev.20260328-1341';
 const PASSCODE_KEY = 'openbox-bambina-parent-passcode';
 const SINGLE_APP_GUIDE_ACK_KEY = 'openbox-bambina-single-app-guide-acknowledged';
+const SOUND_PACK_KEY = 'openbox-bambina-sound-pack';
 const CORNER_SEQUENCE: Corner[] = ['topLeft', 'topRight', 'bottomRight', 'bottomLeft'];
 const BABY_COLORS = [
   '#FF8FAB',
@@ -80,7 +89,7 @@ const PLAY_MESSAGES = [
   'tap softly',
   'give it a little shake',
   'follow the colors',
-  'listen for the chime',
+  'listen for the sound',
 ];
 const SHAPES: Shape[] = ['circle', 'star', 'heart', 'triangle'];
 const BACKGROUNDS = [
@@ -89,15 +98,53 @@ const BACKGROUNDS = [
   ['#220033', '#001A22', '#002200'],
   ['#002244', '#220000', '#001122'],
 ];
-const NOTE_FILES = [
-  require('./assets/audio/c4.wav'),
-  require('./assets/audio/d4.wav'),
-  require('./assets/audio/e4.wav'),
-  require('./assets/audio/f4.wav'),
-  require('./assets/audio/g4.wav'),
-  require('./assets/audio/a4.wav'),
-  require('./assets/audio/b4.wav'),
-  require('./assets/audio/c5.wav'),
+const SOUND_PACKS: SoundPack[] = [
+  {
+    id: 'chime',
+    label: 'Bell Chimes',
+    shortLabel: 'Chimes',
+    description: 'Bright little notes that climb upward with each shake.',
+    files: [
+      require('./assets/audio/c4.wav'),
+      require('./assets/audio/d4.wav'),
+      require('./assets/audio/e4.wav'),
+      require('./assets/audio/f4.wav'),
+      require('./assets/audio/g4.wav'),
+      require('./assets/audio/a4.wav'),
+      require('./assets/audio/b4.wav'),
+      require('./assets/audio/c5.wav'),
+    ],
+  },
+  {
+    id: 'twinkle',
+    label: 'Twinkle Drops',
+    shortLabel: 'Twinkle',
+    description: 'Dreamier sparkles with a gentler, less straight-line melody.',
+    files: [
+      require('./assets/audio/c5.wav'),
+      require('./assets/audio/g4.wav'),
+      require('./assets/audio/e4.wav'),
+      require('./assets/audio/a4.wav'),
+      require('./assets/audio/f4.wav'),
+      require('./assets/audio/d4.wav'),
+      require('./assets/audio/b4.wav'),
+      require('./assets/audio/c4.wav'),
+    ],
+  },
+  {
+    id: 'rattle',
+    label: 'Classic Rattle',
+    shortLabel: 'Rattle',
+    description: 'Soft clacks and tiny shaker textures for a more classic toy feel.',
+    files: [
+      require('./assets/audio/rattle-soft.wav'),
+      require('./assets/audio/rattle-bright.wav'),
+      require('./assets/audio/rattle-clack.wav'),
+      require('./assets/audio/rattle-soft.wav'),
+      require('./assets/audio/rattle-clack.wav'),
+      require('./assets/audio/rattle-bright.wav'),
+    ],
+  },
 ];
 
 let nextId = 1;
@@ -115,6 +162,8 @@ export default function App() {
   const [singleAppGuideVisible, setSingleAppGuideVisible] = useState(false);
   const [launchPromptVisible, setLaunchPromptVisible] = useState(false);
   const [singleAppGuideAcknowledged, setSingleAppGuideAcknowledged] = useState(false);
+  const [selectedSoundPack, setSelectedSoundPack] = useState<SoundPackId>('chime');
+  const [soundPickerOpen, setSoundPickerOpen] = useState(false);
   const [exitStepsConfirmed, setExitStepsConfirmed] = useState(false);
   const [systemLockConfirmed, setSystemLockConfirmed] = useState(false);
   const [nativeLimitsConfirmed, setNativeLimitsConfirmed] = useState(false);
@@ -146,9 +195,10 @@ export default function App() {
 
     async function loadConfig() {
       try {
-        const [savedPin, savedGuideAck] = await Promise.all([
+        const [savedPin, savedGuideAck, savedSoundPack] = await Promise.all([
           SecureStore.getItemAsync(PASSCODE_KEY),
           SecureStore.getItemAsync(SINGLE_APP_GUIDE_ACK_KEY),
+          SecureStore.getItemAsync(SOUND_PACK_KEY),
           Audio.setAudioModeAsync({
             playsInSilentModeIOS: true,
             shouldDuckAndroid: true,
@@ -166,6 +216,9 @@ export default function App() {
           setGateMode('unlock');
           setGateVisible(false);
           setSingleAppGuideAcknowledged(savedGuideAck === 'yes');
+          if (savedSoundPack === 'chime' || savedSoundPack === 'twinkle' || savedSoundPack === 'rattle') {
+            setSelectedSoundPack(savedSoundPack);
+          }
           setLaunchPromptVisible(savedGuideAck !== 'yes');
           setHelperText('Clockwise corner taps open the parent gate.');
         } else {
@@ -195,12 +248,16 @@ export default function App() {
 
     async function loadSounds() {
       const sounds: Audio.Sound[] = [];
-      for (const file of NOTE_FILES) {
+      const pack = SOUND_PACKS.find((entry) => entry.id === selectedSoundPack) ?? SOUND_PACKS[0];
+      for (const file of pack.files) {
         const { sound } = await Audio.Sound.createAsync(file, { shouldPlay: false });
         sounds.push(sound);
       }
       if (active) {
+        const previousSounds = loadedSoundsRef.current;
         loadedSoundsRef.current = sounds;
+        noteIndexRef.current = 0;
+        await Promise.all(previousSounds.map((sound) => sound.unloadAsync().catch(() => undefined)));
       } else {
         await Promise.all(sounds.map((sound) => sound.unloadAsync().catch(() => undefined)));
       }
@@ -216,7 +273,7 @@ export default function App() {
         sound.unloadAsync().catch(() => undefined);
       });
     };
-  }, []);
+  }, [selectedSoundPack]);
 
   useEffect(() => {
     const configureDevice = async () => {
@@ -655,6 +712,7 @@ export default function App() {
   const startChangePinFlow = () => {
     setParentPanelVisible(false);
     setSingleAppGuideVisible(false);
+    setSoundPickerOpen(false);
     setGateVisible(true);
     setGateMode('changeCreate');
     setPinEntry('');
@@ -684,6 +742,7 @@ export default function App() {
   };
 
   const backgroundStops = BACKGROUNDS[backgroundIndex];
+  const activeSoundPack = SOUND_PACKS.find((entry) => entry.id === selectedSoundPack) ?? SOUND_PACKS[0];
   const singleAppGuideMode = singleAppGuideAcknowledged ? 'quickStart' : 'firstTime';
   const canStartSingleAppPlay =
     singleAppGuideMode === 'quickStart'
@@ -785,6 +844,7 @@ export default function App() {
   const openSingleAppGuide = () => {
     setParentPanelVisible(false);
     setLaunchPromptVisible(false);
+    setSoundPickerOpen(false);
     resetSingleAppChecklist();
     setSingleAppGuideVisible(true);
     setHelperText('Single-app play setup is open.');
@@ -831,6 +891,7 @@ export default function App() {
 
   const returnToParentControls = () => {
     setSingleAppGuideVisible(false);
+    setSoundPickerOpen(false);
     setParentPanelVisible(true);
     setHelperText('Returned to parent controls.');
   };
@@ -838,6 +899,18 @@ export default function App() {
   const dismissLaunchPrompt = () => {
     setLaunchPromptVisible(false);
     setHelperText('Baby mode resumed. Use the settings button when you are ready to lock the app for handoff.');
+  };
+
+  const chooseSoundPack = async (soundPackId: SoundPackId) => {
+    const nextPack = SOUND_PACKS.find((entry) => entry.id === soundPackId) ?? SOUND_PACKS[0];
+    setSelectedSoundPack(nextPack.id);
+    setSoundPickerOpen(false);
+    noteIndexRef.current = 0;
+    setHelperText(`${nextPack.label} selected.`);
+    await SecureStore.setItemAsync(SOUND_PACK_KEY, nextPack.id);
+    setTimeout(() => {
+      playNextNote().catch(() => undefined);
+    }, 120);
   };
 
   if (loading) {
@@ -1053,6 +1126,7 @@ export default function App() {
                 onPress={() => {
                   setGateVisible(false);
                   setPinEntry('');
+                  setSoundPickerOpen(false);
                   setHelperText('Baby mode resumed.');
                 }}
               >
@@ -1110,6 +1184,45 @@ export default function App() {
               </Text>
             </View>
 
+            <View style={styles.soundCard}>
+              <Text style={styles.tipTitle}>Sound pack</Text>
+              <Text style={styles.tipText}>{activeSoundPack.description}</Text>
+
+              <Pressable
+                style={[styles.soundDropdown, soundPickerOpen && styles.soundDropdownOpen]}
+                onPress={() => setSoundPickerOpen((current) => !current)}
+              >
+                <View style={styles.soundDropdownCopy}>
+                  <Text style={styles.soundDropdownLabel}>{activeSoundPack.label}</Text>
+                  <Text style={styles.soundDropdownHint}>Tap to choose a different toy sound</Text>
+                </View>
+                <Text style={styles.soundDropdownChevron}>{soundPickerOpen ? '▲' : '▼'}</Text>
+              </Pressable>
+
+              {soundPickerOpen ? (
+                <View style={styles.soundOptions}>
+                  {SOUND_PACKS.map((soundPack) => (
+                    <Pressable
+                      key={soundPack.id}
+                      style={[styles.soundOption, soundPack.id === activeSoundPack.id && styles.soundOptionActive]}
+                      onPress={() => {
+                        chooseSoundPack(soundPack.id).catch(() => undefined);
+                      }}
+                    >
+                      <View style={styles.soundOptionCopy}>
+                        <Text style={styles.soundOptionTitle}>
+                          {soundPack.label}
+                          {soundPack.id === activeSoundPack.id ? ' selected' : ''}
+                        </Text>
+                        <Text style={styles.soundOptionBody}>{soundPack.description}</Text>
+                      </View>
+                      <Text style={styles.soundOptionBadge}>{soundPack.shortLabel}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+
             <Pressable style={styles.primaryButton} onPress={openSingleAppGuide}>
               <Text style={styles.primaryButtonText}>{singleAppGuideAcknowledged ? 'Review single-app play' : 'Set up single-app play'}</Text>
             </Pressable>
@@ -1118,6 +1231,7 @@ export default function App() {
               style={styles.secondaryButton}
               onPress={() => {
                 setParentPanelVisible(false);
+                setSoundPickerOpen(false);
                 setHelperText('Baby mode resumed.');
               }}
             >
@@ -1641,6 +1755,89 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 16,
     gap: 6,
+  },
+  soundCard: {
+    backgroundColor: '#FFF4D8',
+    borderRadius: 24,
+    padding: 16,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#F6C453',
+  },
+  soundDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 2,
+    borderColor: '#FBCB64',
+  },
+  soundDropdownOpen: {
+    borderColor: '#081120',
+  },
+  soundDropdownCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  soundDropdownLabel: {
+    color: '#081120',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  soundDropdownHint: {
+    color: '#64748B',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  soundDropdownChevron: {
+    color: '#081120',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  soundOptions: {
+    gap: 10,
+  },
+  soundOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 20,
+    padding: 14,
+    backgroundColor: '#FFFFFFCC',
+    borderWidth: 1,
+    borderColor: '#F6D58A',
+  },
+  soundOptionActive: {
+    borderColor: '#081120',
+    backgroundColor: '#FFFFFF',
+  },
+  soundOptionCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  soundOptionTitle: {
+    color: '#081120',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  soundOptionBody: {
+    color: '#475569',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  soundOptionBadge: {
+    color: '#7C2D12',
+    backgroundColor: '#FDE68A',
+    overflow: 'hidden',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: '800',
   },
   journeyStep: {
     flexDirection: 'row',
